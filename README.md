@@ -1,1 +1,1 @@
-Sample text
+Lab works for "Image processing algorithms" discipline
