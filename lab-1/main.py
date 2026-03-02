@@ -54,12 +54,11 @@ def calculate_brdf(light_dir, view_dir, normal, k_d, k_s, n, surface_color):
     light_dir = normalize(light_dir)
     view_dir = normalize(view_dir)
     normal = normalize(normal)
-    k_d = np.array(k_d, dtype=float)
     surface_color = np.array(surface_color, dtype=float)
     
     h = calculate_half_vector(light_dir, view_dir)
     
-    nh = np.clip(np.dot(normal, h), 0.0, 1.0)
+    nh = np.dot(normal, h)
     
     diffuse = k_d
     specular = k_s * (nh ** n)
@@ -103,7 +102,7 @@ def calculate_brightness_at_point(
         cos_alpha = np.dot(point_to_light_dir, normal)
         E = calculate_illumination(I_theta, cos_alpha, R)
         
-        brdf = calculate_brdf(point_to_light_dir, view_dir, normal, k_d, k_s, n, surface_color)
+        brdf = calculate_brdf(source_to_point_dir, view_dir, normal, k_d, k_s, n, surface_color)
         B = E * brdf
         
         E_total += E
@@ -249,7 +248,7 @@ if __name__ == "__main__":
         "input_colored.txt",
         "input_large_distance.txt",
         "input_black_surface.txt",
-        "input_specular_reflection.txt"
+        "input_specular_reflection.txt",
     ]
     
     print("Available input files:")
@@ -334,7 +333,7 @@ if __name__ == "__main__":
         k_s=k_s,
         n=n,
         surface_color=surface_color,
-        resolution=50
+        resolution=200
     )
     print(f"Generated {mesh_data['vertices'].shape[0]}x{mesh_data['vertices'].shape[1]} mesh grid")
 
