@@ -2,6 +2,8 @@ import numpy as np
 from tabulate import tabulate
 import subprocess
 import sys
+import os
+import math
 
 def normalize(v):
     v = np.array(v, dtype=float)
@@ -108,7 +110,7 @@ def calculate_brightness_at_point(
         B_total += B
     
     E = np.clip(E_total, 0, None)
-    B = np.clip(B_total, 0, None)
+    B = np.clip(B_total, 0, None) / math.pi
     
     return E, B
 
@@ -136,7 +138,7 @@ def generate_dense_triangle_mesh(triangle, normal, lights, view_dir, k_d, k_s, n
             v = v_grid[i, j]
             
             point = local_to_global(triangle, u, v)
-            E, B = calculate_brightness_at_point(
+            B = calculate_brightness_at_point(
                 point=point,
                 normal=normal,
                 lights=lights,
@@ -145,7 +147,7 @@ def generate_dense_triangle_mesh(triangle, normal, lights, view_dir, k_d, k_s, n
                 k_s=k_s,
                 n=n,
                 surface_color=surface_color,
-            )
+            )[1]
             
             vertices[i, j] = point
             brightness[i, j] = np.clip(B, 0, 1.0)
@@ -165,15 +167,15 @@ def format_rgb(rgb):
 def save_tables_to_file(filename, E_local_table, E_global_table, B_table, headers):
     with open(filename, 'w') as f:
         f.write("=== Table 1: Illumination E (Local Coordinates) ===\n")
-        f.write(tabulate(E_local_table, headers=headers, tablefmt="grid"))
+        f.write(tabulate(E_local_table, headers=headers, tablefmt="fancy-grid"))
         f.write("\n\n")
         
         f.write("=== Table 2: Illumination E (Global Coordinates) ===\n")
-        f.write(tabulate(E_global_table, headers=headers, tablefmt="grid"))
+        f.write(tabulate(E_global_table, headers=headers, tablefmt="fancy-grid"))
         f.write("\n\n")
         
         f.write("=== Table 3: Brightness B ===\n")
-        f.write(tabulate(B_table, headers=headers, tablefmt="grid"))
+        f.write(tabulate(B_table, headers=headers, tablefmt="fancy-grid"))
         f.write("\n")
 
 def parse_input(filepath):
@@ -308,14 +310,17 @@ if __name__ == "__main__":
     headers = [""] + [f"u={u:.2f}" for u in u_values]
     
     print("\n=== Table 1: Illumination E (Local Coordinates) ===")
-    print(tabulate(E_local_table, headers=headers, tablefmt="grid"))
+    print(tabulate(E_local_table, headers=headers, tablefmt="fancy-grid"))
     
     print("\n=== Table 2: Illumination E (Global Coordinates) ===")
-    print(tabulate(E_global_table, headers=headers, tablefmt="grid"))
+    print(tabulate(E_global_table, headers=headers, tablefmt="fancy-grid"))
     
     print("\n=== Table 3: Brightness B ===")
-    print(tabulate(B_table, headers=headers, tablefmt="grid"))
+    print(tabulate(B_table, headers=headers, tablefmt="fancy-grid"))
     
+    if not os.path.exists("output"):
+        os.makedirs("output")
+
     save_tables_to_file("output/output.txt", E_local_table, E_global_table, B_table, headers)
     print("\nOutput saved to output/output.txt")
     
@@ -332,7 +337,7 @@ if __name__ == "__main__":
         resolution=50
     )
     print(f"Generated {mesh_data['vertices'].shape[0]}x{mesh_data['vertices'].shape[1]} mesh grid")
-    
+
     np.savez('output/mesh_data.npz',
              vertices=mesh_data['vertices'],
              brightness=mesh_data['brightness'],
