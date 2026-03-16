@@ -7,7 +7,7 @@ except ImportError:
     tabulate = None
 
 
-rng = np.random.default_rng(42)
+rng = np.random.default_rng(35)
 
 def calculate_simple_monte_carlo_integral(a, b, function, n):
     samples = rng.uniform(a, b, size=n)
@@ -85,7 +85,6 @@ def run_experiments(a, b, true_integral_value):
                 "n": n,
                 "params": "-",
                 "estimate": estimate,
-                "true_value": true_integral_value,
                 "abs_error": abs(estimate - true_integral_value),
             }
         )
@@ -98,7 +97,6 @@ def run_experiments(a, b, true_integral_value):
                     "n": n,
                     "params": f"step={step}",
                     "estimate": estimate,
-                    "true_value": true_integral_value,
                     "abs_error": abs(estimate - true_integral_value),
                 }
             )
@@ -111,7 +109,6 @@ def run_experiments(a, b, true_integral_value):
                     "n": n,
                     "params": f"pdf={pdf_name}",
                     "estimate": estimate,
-                    "true_value": true_integral_value,
                     "abs_error": abs(estimate - true_integral_value),
                 }
             )
@@ -124,7 +121,6 @@ def run_experiments(a, b, true_integral_value):
                         "n": n,
                         "params": f"pdf={pdf_name}, r={r}",
                         "estimate": estimate,
-                        "true_value": true_integral_value,
                         "abs_error": abs(estimate - true_integral_value),
                     }
                 )
@@ -139,7 +135,6 @@ def run_experiments(a, b, true_integral_value):
                     "n": n,
                     "params": f"pdfs=p1,p3; weights={weight_name}",
                     "estimate": estimate,
-                    "true_value": true_integral_value,
                     "abs_error": abs(estimate - true_integral_value),
                 }
             )
@@ -151,7 +146,7 @@ def build_table_string(headers, table_rows):
     if tabulate is not None:
         return tabulate(table_rows, headers=headers, tablefmt="fancy_grid")
 
-    row_template = "{:<8} {:<26} {:>12} {:>12} {:>12}"
+    row_template = "{:<8} {:<26} {:>12} {:>12}"
     lines = [row_template.format(*headers), "-" * 75]
     for row in table_rows:
         lines.append(row_template.format(*row))
@@ -159,7 +154,7 @@ def build_table_string(headers, table_rows):
 
 
 def write_results_tables_to_file(results, output_path):
-    headers = ["n", "params", "estimate", "true_value", "abs_error"]
+    headers = ["n", "params", "estimate", "abs_error"]
     preferred_order = ["simple", "stratified", "importance", "multi_importance", "russian_roulette"]
     methods = [method for method in preferred_order if any(row["method"] == method for row in results)]
     sections = []
@@ -176,7 +171,6 @@ def write_results_tables_to_file(results, output_path):
                     row["n"],
                     row["params"],
                     f"{row['estimate']:.6f}",
-                    f"{row['true_value']:.6f}",
                     f"{row['abs_error']:.6f}",
                 ]
             )
@@ -191,12 +185,11 @@ def write_results_tables_to_file(results, output_path):
                 best_row["n"],
                 best_row["params"],
                 f"{best_row['estimate']:.6f}",
-                f"{best_row['true_value']:.6f}",
                 f"{best_row['abs_error']:.6f}",
             ]
         )
 
-    summary_headers = ["method", "n", "params", "estimate", "true_value", "abs_error"]
+    summary_headers = ["method", "n", "params", "estimate", "abs_error"]
     sections.append(f"Summary: best result per method\n{build_table_string(summary_headers, summary_rows)}")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
