@@ -2,6 +2,8 @@ import numpy as np
 from tabulate import tabulate
 import subprocess
 import sys
+import os
+import math
 
 def normalize(v):
     v = np.array(v, dtype=float)
@@ -42,6 +44,29 @@ def local_to_global(triangle, x, y):
     point = v0 + x * edge1 + y * edge2
     return point
 
+def build_local_frame(triangle):
+    v0 = np.array(triangle[0], dtype=float)
+    v1 = np.array(triangle[1], dtype=float)
+    v2 = np.array(triangle[2], dtype=float)
+
+    edge1 = v1 - v0
+    edge2 = v2 - v0
+
+    x_axis = normalize(edge1)
+    z_axis = normalize(np.cross(edge1, edge2))
+    y_axis = normalize(np.cross(z_axis, x_axis))
+
+    rotation_local_to_global = np.column_stack((x_axis, y_axis, z_axis))
+    return v0, rotation_local_to_global
+
+def global_point_to_local(point, origin, rotation_local_to_global):
+    point = np.array(point, dtype=float)
+    return rotation_local_to_global.T @ (point - origin)
+
+def global_vector_to_local(vector, rotation_local_to_global):
+    vector = np.array(vector, dtype=float)
+    return rotation_local_to_global.T @ vector
+
 def calculate_half_vector(light_dir, view_dir):
     light_dir = np.array(light_dir, dtype=float)
     view_dir = np.array(view_dir, dtype=float)
@@ -52,12 +77,11 @@ def calculate_brdf(light_dir, view_dir, normal, k_d, k_s, n, surface_color):
     light_dir = normalize(light_dir)
     view_dir = normalize(view_dir)
     normal = normalize(normal)
-    k_d = np.array(k_d, dtype=float)
     surface_color = np.array(surface_color, dtype=float)
     
     h = calculate_half_vector(light_dir, view_dir)
     
-    nh = np.clip(np.dot(normal, h), 0.0, 1.0)
+    nh = np.dot(normal, h)
     
     diffuse = k_d
     specular = k_s * (nh ** n)
@@ -101,14 +125,14 @@ def calculate_brightness_at_point(
         cos_alpha = np.dot(point_to_light_dir, normal)
         E = calculate_illumination(I_theta, cos_alpha, R)
         
-        brdf = calculate_brdf(point_to_light_dir, view_dir, normal, k_d, k_s, n, surface_color)
+        brdf = calculate_brdf(source_to_point_dir, view_dir, normal, k_d, k_s, n, surface_color)
         B = E * brdf
         
         E_total += E
         B_total += B
     
     E = np.clip(E_total, 0, None)
-    B = np.clip(B_total, 0, None)
+    B = np.clip(B_total, 0, None) / math.pi
     
     return E, B
 
@@ -136,7 +160,7 @@ def generate_dense_triangle_mesh(triangle, normal, lights, view_dir, k_d, k_s, n
             v = v_grid[i, j]
             
             point = local_to_global(triangle, u, v)
-            E, B = calculate_brightness_at_point(
+            B = calculate_brightness_at_point(
                 point=point,
                 normal=normal,
                 lights=lights,
@@ -145,7 +169,7 @@ def generate_dense_triangle_mesh(triangle, normal, lights, view_dir, k_d, k_s, n
                 k_s=k_s,
                 n=n,
                 surface_color=surface_color,
-            )
+            )[1]
             
             vertices[i, j] = point
             brightness[i, j] = np.clip(B, 0, 1.0)
@@ -163,17 +187,17 @@ def format_rgb(rgb):
     return f"({rgb_255[0]}, {rgb_255[1]}, {rgb_255[2]})"
 
 def save_tables_to_file(filename, E_local_table, E_global_table, B_table, headers):
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         f.write("=== Table 1: Illumination E (Local Coordinates) ===\n")
-        f.write(tabulate(E_local_table, headers=headers, tablefmt="grid"))
+        f.write(tabulate(E_local_table, headers=headers, tablefmt="fancy_grid"))
         f.write("\n\n")
         
         f.write("=== Table 2: Illumination E (Global Coordinates) ===\n")
-        f.write(tabulate(E_global_table, headers=headers, tablefmt="grid"))
+        f.write(tabulate(E_global_table, headers=headers, tablefmt="fancy_grid"))
         f.write("\n\n")
         
         f.write("=== Table 3: Brightness B ===\n")
-        f.write(tabulate(B_table, headers=headers, tablefmt="grid"))
+        f.write(tabulate(B_table, headers=headers, tablefmt="fancy_grid"))
         f.write("\n")
 
 def parse_input(filepath):
@@ -247,7 +271,7 @@ if __name__ == "__main__":
         "input_colored.txt",
         "input_large_distance.txt",
         "input_black_surface.txt",
-        "input_specular_reflection.txt"
+        "input_specular_reflection.txt",
     ]
     
     print("Available input files:")
@@ -272,12 +296,25 @@ if __name__ == "__main__":
 
     u_values = data['obs_params'][0]
     v_values = data['obs_params'][1]
+
+    local_origin, rotation_local_to_global = build_local_frame(triangle)
+    normal_local = global_vector_to_local(normal, rotation_local_to_global)
+    view_dir_local = global_vector_to_local(view_dir, rotation_local_to_global)
+    lights_local = []
+    for light in data['lights']:
+        lights_local.append({
+            'color': np.array(light['color'], dtype=float),
+            'position': global_point_to_local(light['position'], local_origin, rotation_local_to_global),
+            'axis': global_vector_to_local(light['axis'], rotation_local_to_global)
+        })
     
     grid_points = generate_grid_points(u_values, v_values)
     
     E_local_table = []
     E_global_table = []
     B_table = []
+    E_local_values = np.zeros((len(v_values), len(u_values), 3), dtype=float)
+    E_global_values = np.zeros((len(v_values), len(u_values), 3), dtype=float)
     
     for i, row in enumerate(grid_points):
         E_local_row = [f"v={v_values[i]:.2f}"]
@@ -285,9 +322,22 @@ if __name__ == "__main__":
         B_row = [f"v={v_values[i]:.2f}"]
         
         for j, (u, v) in enumerate(row):
-            point = local_to_global(triangle, u, v)
-            E, B = calculate_brightness_at_point(
-                point=point,
+            point_global = local_to_global(triangle, u, v)
+            point_local = global_point_to_local(point_global, local_origin, rotation_local_to_global)
+
+            E_local, _ = calculate_brightness_at_point(
+                point=point_local,
+                normal=normal_local,
+                lights=lights_local,
+                view_dir=view_dir_local,
+                k_d=k_d,
+                k_s=k_s,
+                n=n,
+                surface_color=surface_color,
+            )
+
+            E_global, B = calculate_brightness_at_point(
+                point=point_global,
                 normal=normal,
                 lights=data['lights'],
                 view_dir=view_dir,
@@ -296,9 +346,12 @@ if __name__ == "__main__":
                 n=n,
                 surface_color=surface_color,
             )
+
+            E_local_values[i, j] = E_local
+            E_global_values[i, j] = E_global
             
-            E_local_row.append(format_rgb(E))
-            E_global_row.append(format_rgb(E))
+            E_local_row.append(format_rgb(E_local))
+            E_global_row.append(format_rgb(E_global))
             B_row.append(format_rgb(B))
         
         E_local_table.append(E_local_row)
@@ -308,16 +361,18 @@ if __name__ == "__main__":
     headers = [""] + [f"u={u:.2f}" for u in u_values]
     
     print("\n=== Table 1: Illumination E (Local Coordinates) ===")
-    print(tabulate(E_local_table, headers=headers, tablefmt="grid"))
+    print(tabulate(E_local_table, headers=headers, tablefmt="fancy_grid"))
     
     print("\n=== Table 2: Illumination E (Global Coordinates) ===")
-    print(tabulate(E_global_table, headers=headers, tablefmt="grid"))
+    print(tabulate(E_global_table, headers=headers, tablefmt="fancy_grid"))
     
     print("\n=== Table 3: Brightness B ===")
-    print(tabulate(B_table, headers=headers, tablefmt="grid"))
+    print(tabulate(B_table, headers=headers, tablefmt="fancy_grid"))
     
+    if not os.path.exists("output"):
+        os.makedirs("output")
+
     save_tables_to_file("output/output.txt", E_local_table, E_global_table, B_table, headers)
-    print("\nOutput saved to output/output.txt")
     
     print("\nGenerating dense triangle mesh for visualization...")
     mesh_data = generate_dense_triangle_mesh(
@@ -332,7 +387,7 @@ if __name__ == "__main__":
         resolution=50
     )
     print(f"Generated {mesh_data['vertices'].shape[0]}x{mesh_data['vertices'].shape[1]} mesh grid")
-    
+
     np.savez('output/mesh_data.npz',
              vertices=mesh_data['vertices'],
              brightness=mesh_data['brightness'],
