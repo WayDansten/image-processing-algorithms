@@ -19,8 +19,8 @@ def calculate_light_power_at_angle(I0, cos_theta):
 
 def calculate_illumination(I_theta, cos_alpha, R):
     I_theta = np.array(I_theta, dtype=float)
-    cos_alpha = np.clip(np.abs(cos_alpha), 0.0, 1.0)
-    E = I_theta * cos_alpha / (R * R + 1e-10)
+    cos_alpha = np.clip(cos_alpha, 0.0, 1.0)
+    E = I_theta * cos_alpha / (R ** 2 + 1e-10)
     return E
 
 def calculate_triangle_normal(triangle):
@@ -93,7 +93,7 @@ def calculate_brightness_at_point(
     point,
     normal,
     lights,
-    view_dir,
+    observer_pos,
     k_d,
     k_s,
     n,
@@ -101,7 +101,15 @@ def calculate_brightness_at_point(
 ):
     point = np.array(point, dtype=float)
     normal = normalize(normal)
-    view_dir = normalize(view_dir)
+    observer_pos = np.array(observer_pos, dtype=float)
+    
+    view_dir = normalize(observer_pos - point)
+    
+    cos_view = np.dot(normal, view_dir)
+    
+    observer_on_front = cos_view > 0
+    
+    normal_for_brdf = normal if observer_on_front else -normal
     
     E_total = np.zeros(3, dtype=float)
     B_total = np.zeros(3, dtype=float)
@@ -122,10 +130,17 @@ def calculate_brightness_at_point(
         cos_theta = np.dot(source_to_point_dir, light_axis)
         I_theta = calculate_light_power_at_angle(light_color, cos_theta)
         
-        cos_alpha = np.dot(point_to_light_dir, normal)
+        cos_light = np.dot(point_to_light_dir, normal)
+        light_on_front = cos_light > 0
+        
+        if light_on_front == observer_on_front:
+            cos_alpha = np.clip(np.abs(cos_light), 0.0, 1.0)
+        else:
+            cos_alpha = 0.0
+        
         E = calculate_illumination(I_theta, cos_alpha, R)
         
-        brdf = calculate_brdf(source_to_point_dir, view_dir, normal, k_d, k_s, n, surface_color)
+        brdf = calculate_brdf(point_to_light_dir, view_dir, normal_for_brdf, k_d, k_s, n, surface_color)
         B = E * brdf
         
         E_total += E
@@ -145,7 +160,7 @@ def generate_grid_points(u_values, v_values):
         points.append(row)
     return np.array(points, dtype=object)
 
-def generate_dense_triangle_mesh(triangle, normal, lights, view_dir, k_d, k_s, n, surface_color, resolution=50):
+def generate_dense_triangle_mesh(triangle, normal, lights, observer_pos, k_d, k_s, n, surface_color, resolution=50):
     u_range = np.linspace(0.0, 1.0, resolution)
     v_range = np.linspace(0.0, 1.0, resolution)
     
@@ -164,7 +179,7 @@ def generate_dense_triangle_mesh(triangle, normal, lights, view_dir, k_d, k_s, n
                 point=point,
                 normal=normal,
                 lights=lights,
-                view_dir=view_dir,
+                observer_pos=observer_pos,
                 k_d=k_d,
                 k_s=k_s,
                 n=n,
@@ -288,7 +303,7 @@ if __name__ == "__main__":
     triangle = data['triangle']
     normal = calculate_triangle_normal(triangle)
 
-    view_dir = normalize(data['obs_direction'])
+    observer_pos = np.array(data['obs_direction'], dtype=float)  # This is actually observer position
     k_d = data['brdf_diffuse']
     k_s = data['brdf_specular_coeff']
     n = data['specular_exponent']
@@ -299,7 +314,7 @@ if __name__ == "__main__":
 
     local_origin, rotation_local_to_global = build_local_frame(triangle)
     normal_local = global_vector_to_local(normal, rotation_local_to_global)
-    view_dir_local = global_vector_to_local(view_dir, rotation_local_to_global)
+    observer_pos_local = global_point_to_local(observer_pos, local_origin, rotation_local_to_global)
     lights_local = []
     for light in data['lights']:
         lights_local.append({
@@ -329,7 +344,7 @@ if __name__ == "__main__":
                 point=point_local,
                 normal=normal_local,
                 lights=lights_local,
-                view_dir=view_dir_local,
+                observer_pos=observer_pos_local,
                 k_d=k_d,
                 k_s=k_s,
                 n=n,
@@ -340,7 +355,7 @@ if __name__ == "__main__":
                 point=point_global,
                 normal=normal,
                 lights=data['lights'],
-                view_dir=view_dir,
+                observer_pos=observer_pos,
                 k_d=k_d,
                 k_s=k_s,
                 n=n,
@@ -379,7 +394,7 @@ if __name__ == "__main__":
         triangle=triangle,
         normal=normal,
         lights=data['lights'],
-        view_dir=view_dir,
+        observer_pos=observer_pos,
         k_d=k_d,
         k_s=k_s,
         n=n,

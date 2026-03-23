@@ -22,23 +22,23 @@ def calculate_stratified_monte_carlo_integral(a, b, function, step, n):
         result += np.mean(function(samples)) * (partition[i + 1] - partition[i])
     return result
 
-def calculate_importance_monte_carlo_integral(a, b, function, pdf, inv_cdf, n):
-    samples = inv_cdf(rng.uniform(0, 1, size=n)) * (b - a) + a
+def calculate_importance_monte_carlo_integral(function, pdf, inv_cdf, n):
+    samples = inv_cdf(rng.uniform(0, 1, size=n))
     y = function(samples) / pdf(samples)
     return np.mean(y)
 
-def calculate_multi_importance_monte_carlo_integral(a, b, function, pdfs, inv_cdfs, weight_functions, n):
+def calculate_multi_importance_monte_carlo_integral(function, pdfs, inv_cdfs, weight_functions, n):
     base_samples = rng.uniform(0, 1, size=n)
     result = 0
     for pdf, inv_cdf, weight_function in zip(pdfs, inv_cdfs, weight_functions):
-        samples = inv_cdf(base_samples) * (b - a) + a
+        samples = inv_cdf(base_samples)
         result += function(samples) / pdf(samples) * weight_function(samples, pdfs[0], pdfs[1])
     return np.mean(result)
 
-def calculate_russian_roulette_monte_carlo_integral(a, b, function, pdf, inv_cdf, r, n):
+def calculate_russian_roulette_monte_carlo_integral(function, pdf, inv_cdf, r, n):
     y = 0
     for _ in range(n):
-        sample = inv_cdf(rng.uniform(0, 1)) * (b - a) + a
+        sample = inv_cdf(rng.uniform(0, 1))
         if rng.uniform(0, 1) < r:
             y += function(sample) / (pdf(sample) * r)
     return y / n
@@ -46,14 +46,14 @@ def calculate_russian_roulette_monte_carlo_integral(a, b, function, pdf, inv_cdf
 
 square = lambda x: x ** 2
 square_integral = lambda x: x ** 3 / 3
- 
-p1 = lambda x: 2 * (x - 2) / 9 
-p2 = lambda x: (x - 2) ** 2 / 9
-p3 = lambda x: 4 * (x - 2) ** 3 / 81
 
-f1 = lambda x: x ** (1 / 2)
-f2 = lambda x: x ** (1 / 3)
-f3 = lambda x: x ** (1 / 4)
+p1 = lambda x: x * 2 / 21
+p2 = lambda x: x ** 2 / 39
+p3 = lambda x: x ** 3 * 4 / 609
+
+f1 = lambda x: (x * 21 + 4) ** (1 / 2)
+f2 = lambda x: (x * 117 + 8) ** (1 / 3)
+f3 = lambda x: (x * 609 + 16) ** (1 / 4)
 
 w1 = lambda x, pdf1, pdf2: pdf1(x) / (pdf1(x) + pdf2(x))
 w2 = lambda x, pdf1, pdf2: pdf2(x) / (pdf1(x) + pdf2(x))
@@ -102,7 +102,7 @@ def run_experiments(a, b, true_integral_value):
             )
 
         for pdf_name, pdf, inv_cdf in zip(["p1", "p2", "p3"], [p1, p2, p3], [f1, f2, f3]):
-            estimate = calculate_importance_monte_carlo_integral(a, b, square, pdf, inv_cdf, n)
+            estimate = calculate_importance_monte_carlo_integral(square, pdf, inv_cdf, n)
             results.append(
                 {
                     "method": "importance",
@@ -114,7 +114,7 @@ def run_experiments(a, b, true_integral_value):
             )
 
             for r in [r1, r2, r3]:
-                estimate = calculate_russian_roulette_monte_carlo_integral(a, b, square, pdf, inv_cdf, r, n)
+                estimate = calculate_russian_roulette_monte_carlo_integral(square, pdf, inv_cdf, r, n)
                 results.append(
                     {
                         "method": "russian_roulette",
@@ -127,7 +127,7 @@ def run_experiments(a, b, true_integral_value):
 
         for weight_name, weight_function_pair in [("balance", [w1, w2]), ("power", [w3, w4])]:
             estimate = calculate_multi_importance_monte_carlo_integral(
-                a, b, square, [p1, p3], [f1, f3], weight_function_pair, n
+                square, [p1, p3], [f1, f3], weight_function_pair, n
             )
             results.append(
                 {
