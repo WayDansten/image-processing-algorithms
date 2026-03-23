@@ -201,6 +201,12 @@ def format_rgb(rgb):
     rgb_255 = np.clip(np.rint(rgb * 255.0), 0, 255).astype(int)
     return f"({rgb_255[0]}, {rgb_255[1]}, {rgb_255[2]})"
 
+def format_rgb_with_coords(rgb, point):
+    rgb = np.array(rgb, dtype=float)
+    point = np.array(point, dtype=float)
+    rgb_255 = np.clip(np.rint(rgb * 255.0), 0, 255).astype(int)
+    return f"E({rgb_255[0]},{rgb_255[1]},{rgb_255[2]}) | ({point[0]:.2f},{point[1]:.2f},{point[2]:.2f})"
+
 def save_tables_to_file(filename, E_local_table, E_global_table, B_table, headers):
     with open(filename, 'w', encoding='utf-8') as f:
         f.write("=== Table 1: Illumination E (Local Coordinates) ===\n")
@@ -303,7 +309,7 @@ if __name__ == "__main__":
     triangle = data['triangle']
     normal = calculate_triangle_normal(triangle)
 
-    observer_pos = np.array(data['obs_direction'], dtype=float)  # This is actually observer position
+    observer_pos = np.array(data['obs_direction'], dtype=float)
     k_d = data['brdf_diffuse']
     k_s = data['brdf_specular_coeff']
     n = data['specular_exponent']
@@ -366,7 +372,7 @@ if __name__ == "__main__":
             E_global_values[i, j] = E_global
             
             E_local_row.append(format_rgb(E_local))
-            E_global_row.append(format_rgb(E_global))
+            E_global_row.append(format_rgb_with_coords(E_global, point_global))
             B_row.append(format_rgb(B))
         
         E_local_table.append(E_local_row)
