@@ -172,7 +172,7 @@ def plot_cosine_directions(normal, center, n_points):
 
 
 if __name__ == "__main__":
-    n = 100
+    n = 1000
 
     triangle_vertices = np.array([
         [0.0, 0.0],
