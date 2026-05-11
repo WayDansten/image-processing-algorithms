@@ -1,0 +1,56 @@
+# Materials for scene_simple.obj (no textures)
+
+newmtl floor_gray
+Kd 0.55 0.55 0.55
+Ks 0.02 0.02 0.02
+Ns 10
+
+newmtl wall_back_blue
+Kd 0.30 0.40 0.65
+Ks 0.02 0.02 0.02
+Ns 10
+
+newmtl wall_left_green
+Kd 0.25 0.55 0.35
+Ks 0.02 0.02 0.02
+Ns 10
+
+newmtl wall_right_red
+Kd 0.60 0.25 0.25
+Ks 0.02 0.02 0.02
+Ns 10
+
+newmtl box_tall_yellow
+Kd 0.65 0.60 0.25
+Ks 0.05 0.05 0.05
+Ns 50
+
+newmtl box_short_cyan
+Kd 0.25 0.60 0.60
+Ks 0.04 0.04 0.04
+Ns 40
+
+newmtl pyramid_white
+Kd 0.80 0.80 0.80
+Ks 0.05 0.05 0.05
+Ns 60
+
+newmtl ramp_orange
+Kd 0.75 0.45 0.20
+Ks 0.03 0.03 0.03
+Ns 30
+
+newmtl box_small_magenta
+Kd 0.70 0.30 0.60
+Ks 0.04 0.04 0.04
+Ns 40
+
+# Light materials (color only; treat as emissive in renderer)
+newmtl light_rect_white
+Kd 1.00 1.00 1.00
+
+newmtl light_tri_warm
+Kd 1.00 0.80 0.60
+
+newmtl light_strip_cool
+Kd 0.70 0.85 1.00
