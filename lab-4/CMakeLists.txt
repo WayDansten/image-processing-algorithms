@@ -31,6 +31,26 @@ endif()
 find_package(embree CONFIG REQUIRED)
 target_link_libraries(path_tracer PRIVATE embree)
 
+get_filename_component(_embree_share_dir "${embree_DIR}" DIRECTORY)
+get_filename_component(_embree_installed_dir "${_embree_share_dir}" DIRECTORY)
+set(_vcpkg_bin_dir "${_embree_installed_dir}/bin")
+file(GLOB _embree_runtime_dlls
+    "${_vcpkg_bin_dir}/embree*.dll"
+    "${_vcpkg_bin_dir}/tbb*.dll"
+)
+if (_embree_runtime_dlls)
+    add_custom_command(TARGET path_tracer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${_embree_runtime_dlls}
+            $<TARGET_FILE_DIR:path_tracer>
+    )
+endif()
+
+find_package(OpenMP)
+if (OpenMP_CXX_FOUND)
+    target_link_libraries(path_tracer PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
 option(PATH_TRACER_BUILD_TESTS "Build path tracer tests" ON)
 
 if (PATH_TRACER_BUILD_TESTS)

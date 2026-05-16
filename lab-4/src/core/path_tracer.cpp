@@ -15,6 +15,7 @@ namespace pt {
 namespace {
 
 constexpr float kPi = 3.14159265358979323846f;
+constexpr float kInvPi = 1.0f / kPi;
 constexpr float kEpsilon = 1e-4f;
 
 struct LightDistribution {
@@ -120,17 +121,20 @@ bool PathTracer::render(const Scene& scene,
     }
 
     out_image.resize(settings.width, settings.height);
-    Rng rng(settings.seed);
     LightDistribution lights = build_light_distribution(scene);
 
-    for (std::uint32_t y = 0; y < settings.height; ++y) {
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (int y = 0; y < static_cast<int>(settings.height); ++y) {
         for (std::uint32_t x = 0; x < settings.width; ++x) {
+            const std::uint32_t pixel_index = static_cast<std::uint32_t>(y) * settings.width + x;
+            Rng rng(settings.seed + pixel_index * 9781u + 1u);
             Vec3 pixel_radiance{};
 
             for (std::uint32_t s = 0; s < settings.samples_per_pixel; ++s) {
                 Ray ray = generate_camera_ray(camera, x, y, settings, rng);
                 Vec3 throughput{1.0f, 1.0f, 1.0f};
                 Vec3 radiance{};
+                bool last_bounce_specular = true;
 
                 for (std::uint32_t depth = 0; depth < settings.max_depth; ++depth) {
                     HitInfo hit{};
@@ -140,7 +144,9 @@ bool PathTracer::render(const Scene& scene,
 
                     const Material& material = scene.materials[static_cast<std::size_t>(hit.material_id)];
                     if (material.is_emissive) {
-                        radiance += throughput * material.emission;
+                        if (last_bounce_specular) {
+                            radiance += throughput * material.emission;
+                        }
                         break;
                     }
 
@@ -165,18 +171,10 @@ bool PathTracer::render(const Scene& scene,
 
                             if (!occluded) {
                                 const float geometry = (cos_surface * cos_light) / distance_sq;
-                                const Vec3 brdf = material.kd * (1.0f / kPi);
+                                const Vec3 brdf = material.kd * kInvPi;
                                 const float weight = geometry / light_sample.pdf_area;
 
-                                const float pdf_light_solid = (cos_light > 0.0f)
-                                    ? (light_sample.pdf_area * distance_sq / cos_light)
-                                    : 0.0f;
-                                const float pdf_brdf = cos_surface / kPi;
-                                const float mis = (pdf_light_solid > 0.0f)
-                                    ? (pdf_light_solid / (pdf_light_solid + pdf_brdf))
-                                    : 1.0f;
-
-                                Vec3 contrib = throughput * brdf * light_sample.emission * weight * mis;
+                                Vec3 contrib = throughput * brdf * light_sample.emission * weight;
                                 contrib = clamp_max(contrib, 10.0f);
                                 radiance += contrib;
                             }
@@ -196,10 +194,12 @@ bool PathTracer::render(const Scene& scene,
                         const Vec3 new_dir = sample_cosine_hemisphere(hit.normal, rng, pdf);
                         ray = Ray{hit.position + hit.normal * kEpsilon, new_dir};
                         throughput = throughput * material.kd;
+                        last_bounce_specular = false;
                     } else {
                         const Vec3 new_dir = reflect_direction(ray.direction, hit.normal);
                         ray = Ray{hit.position + hit.normal * kEpsilon, new_dir};
                         throughput = throughput * material.ks;
+                        last_bounce_specular = true;
                     }
 
                     if (depth >= 3) {

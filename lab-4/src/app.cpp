@@ -155,7 +155,7 @@ int App::run(int argc, char** argv) {
 
     std::filesystem::path out_path(output_path);
     if (!out_path.has_parent_path()) {
-        out_path = std::filesystem::path("output") / out_path;
+        out_path = std::filesystem::path("lab-4") / "output" / out_path;
     }
     std::filesystem::create_directories(out_path.parent_path());
     output_path = out_path.string();
