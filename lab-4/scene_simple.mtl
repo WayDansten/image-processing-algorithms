@@ -46,11 +46,6 @@ Ks 0.04 0.04 0.04
 Ns 40
 
 # Light materials (color only; treat as emissive in renderer)
-newmtl light_rect_white
-Kd 1.00 1.00 1.00
 
 newmtl light_tri_warm
-Kd 1.00 0.80 0.60
-
-newmtl light_strip_cool
-Kd 0.70 0.85 1.00
+Kd 0.70 0.50 0.30

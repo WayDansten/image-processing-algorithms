@@ -9,6 +9,7 @@ struct HitInfo {
     float t = 0.0f;
     Vec3 position{};
     Vec3 normal{};
+    Vec3 geom_normal{};
     int material_id = -1;
 };
 

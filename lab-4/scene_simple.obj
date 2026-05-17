@@ -105,13 +105,13 @@ f 34 35 37
 f 35 36 37
 f 36 33 37
 
-# Area light 1: rectangular panel near ceiling
-usemtl light_rect_white
-g light_rect
-v -1.800000 2.900000 -1.500000
-v 1.800000 2.900000 -1.500000
-v 1.800000 2.900000 1.500000
-v -1.800000 2.900000 1.500000
+# Ceiling (quad)
+usemtl floor_gray
+g ceiling
+v -3 3 -3
+v 3 3 -3
+v 3 3 3
+v -3 3 3
 f 38 39 40
 f 38 40 41
 
@@ -165,15 +165,11 @@ f 53 58 57
 f 54 51 55
 f 54 55 58
 
-# Area light 3: small square on left wall
-usemtl light_strip_cool
-g light_strip
+# Former light_strip vertices kept to preserve indices
 v -2.900000 1.050000 -0.450000
 v -2.900000 1.050000 0.450000
 v -2.900000 1.950000 0.450000
 v -2.900000 1.950000 -0.450000
-f 59 60 61
-f 59 61 62
 
 # Sphere (polygonal)
 usemtl pyramid_white

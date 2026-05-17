@@ -123,19 +123,36 @@ bool EmbreeScene::intersect(const Ray& ray, float t_min, float t_max, HitInfo& h
 
     const Triangle& tri = scene_->triangles[prim_id];
     const float t = ray_hit.ray.tfar;
-    Vec3 normal{ray_hit.hit.Ng_x, ray_hit.hit.Ng_y, ray_hit.hit.Ng_z};
-    if (length(normal) == 0.0f) {
-        normal = cross(tri.v1 - tri.v0, tri.v2 - tri.v0);
+
+    Vec3 geom_normal = cross(tri.v1 - tri.v0, tri.v2 - tri.v0);
+    if (length(geom_normal) == 0.0f) {
+        geom_normal = Vec3{ray_hit.hit.Ng_x, ray_hit.hit.Ng_y, ray_hit.hit.Ng_z};
     }
-    normal = normalize(normal);
-    if (dot(normal, ray.direction) > 0.0f) {
-        normal = -normal;
+    geom_normal = normalize(geom_normal);
+    if (dot(geom_normal, ray.direction) > 0.0f) {
+        geom_normal = -geom_normal;
+    }
+
+    const float u = ray_hit.hit.u;
+    const float v = ray_hit.hit.v;
+    const float w = 1.0f - u - v;
+    Vec3 shading_normal = tri.n0 * w + tri.n1 * u + tri.n2 * v;
+    if (length(shading_normal) == 0.0f) {
+        shading_normal = geom_normal;
+    }
+    shading_normal = normalize(shading_normal);
+    if (dot(shading_normal, geom_normal) < 0.0f) {
+        shading_normal = -shading_normal;
+    }
+    if (dot(shading_normal, ray.direction) > 0.0f) {
+        shading_normal = -shading_normal;
     }
 
     hit.hit = true;
     hit.t = t;
     hit.position = ray.origin + ray.direction * t;
-    hit.normal = normal;
+    hit.normal = shading_normal;
+    hit.geom_normal = geom_normal;
     hit.material_id = tri.material_id;
     return true;
 }

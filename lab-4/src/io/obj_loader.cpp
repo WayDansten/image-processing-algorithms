@@ -36,26 +36,57 @@ int to_index(int obj_index, int count) {
     return -1;
 }
 
-bool parse_face_vertex(const std::string& token, int vertex_count, int& out_index) {
-    std::string first;
-    const auto slash = token.find('/');
-    if (slash == std::string::npos) {
-        first = token;
+struct FaceTri {
+    int v0 = -1;
+    int v1 = -1;
+    int v2 = -1;
+    int n0 = -1;
+    int n1 = -1;
+    int n2 = -1;
+    int material_id = -1;
+    bool is_light = false;
+};
+
+bool parse_face_vertex(const std::string& token,
+                       int vertex_count,
+                       int normal_count,
+                       int& out_vertex,
+                       int& out_normal) {
+    std::string v_part;
+    std::string n_part;
+
+    const auto first_slash = token.find('/');
+    if (first_slash == std::string::npos) {
+        v_part = token;
     } else {
-        first = token.substr(0, slash);
+        v_part = token.substr(0, first_slash);
+        const auto last_slash = token.rfind('/');
+        if (last_slash != std::string::npos && last_slash + 1 < token.size()) {
+            n_part = token.substr(last_slash + 1);
+        }
     }
 
-    if (first.empty()) {
+    if (v_part.empty()) {
         return false;
     }
 
-    const int raw_index = std::stoi(first);
-    const int index = to_index(raw_index, vertex_count);
-    if (index < 0 || index >= vertex_count) {
+    const int raw_vertex = std::stoi(v_part);
+    const int vertex_index = to_index(raw_vertex, vertex_count);
+    if (vertex_index < 0 || vertex_index >= vertex_count) {
         return false;
     }
 
-    out_index = index;
+    int normal_index = -1;
+    if (!n_part.empty()) {
+        const int raw_normal = std::stoi(n_part);
+        normal_index = to_index(raw_normal, normal_count);
+        if (normal_index < 0 || normal_index >= normal_count) {
+            return false;
+        }
+    }
+
+    out_vertex = vertex_index;
+    out_normal = normal_index;
     return true;
 }
 
@@ -126,6 +157,8 @@ bool load_obj(const std::string& path, Scene& scene, std::string& error_message)
     const auto base_dir = obj_path.parent_path();
 
     std::vector<Vec3> vertices;
+    std::vector<Vec3> normals;
+    std::vector<FaceTri> face_tris;
     std::unordered_map<std::string, int> material_ids;
 
     const float emissive_scale = 8.0f;
@@ -157,6 +190,10 @@ bool load_obj(const std::string& path, Scene& scene, std::string& error_message)
             Vec3 v{};
             stream >> v.x >> v.y >> v.z;
             vertices.push_back(v);
+        } else if (keyword == "vn") {
+            Vec3 n{};
+            stream >> n.x >> n.y >> n.z;
+            normals.push_back(n);
         } else if (keyword == "g") {
             current_is_light = false;
             std::string group_name;
@@ -169,14 +206,21 @@ bool load_obj(const std::string& path, Scene& scene, std::string& error_message)
             stream >> current_material_name;
         } else if (keyword == "f") {
             std::vector<int> face_indices;
+            std::vector<int> normal_indices;
             std::string token;
             while (stream >> token) {
-                int index = -1;
-                if (!parse_face_vertex(token, static_cast<int>(vertices.size()), index)) {
+                int vertex_index = -1;
+                int normal_index = -1;
+                if (!parse_face_vertex(token,
+                                       static_cast<int>(vertices.size()),
+                                       static_cast<int>(normals.size()),
+                                       vertex_index,
+                                       normal_index)) {
                     error_message = "Invalid face index in OBJ file.";
                     return false;
                 }
-                face_indices.push_back(index);
+                face_indices.push_back(vertex_index);
+                normal_indices.push_back(normal_index);
             }
 
             if (face_indices.size() < 3) {
@@ -196,22 +240,86 @@ bool load_obj(const std::string& path, Scene& scene, std::string& error_message)
             }
 
             for (std::size_t i = 1; i + 1 < face_indices.size(); ++i) {
-                Triangle tri{};
-                tri.v0 = vertices[face_indices[0]];
-                tri.v1 = vertices[face_indices[i]];
-                tri.v2 = vertices[face_indices[i + 1]];
+                FaceTri tri{};
+                tri.v0 = face_indices[0];
+                tri.v1 = face_indices[i];
+                tri.v2 = face_indices[i + 1];
+                tri.n0 = normal_indices[0];
+                tri.n1 = normal_indices[i];
+                tri.n2 = normal_indices[i + 1];
                 tri.material_id = material_id;
-                scene.triangles.push_back(tri);
-
-                if (current_is_light && material_id >= 0) {
-                    Material& material = scene.materials[material_id];
-                    material.is_emissive = true;
-                    material.emission = material.kd * emissive_scale;
-                    scene.light_triangle_indices.push_back(
-                        static_cast<int>(scene.triangles.size() - 1)
-                    );
-                }
+                tri.is_light = current_is_light && material_id >= 0;
+                face_tris.push_back(tri);
             }
+        }
+    }
+
+    std::vector<Vec3> smooth_normals(vertices.size(), Vec3{});
+    for (const auto& tri : face_tris) {
+        const Vec3& v0 = vertices[tri.v0];
+        const Vec3& v1 = vertices[tri.v1];
+        const Vec3& v2 = vertices[tri.v2];
+        Vec3 face_normal = cross(v1 - v0, v2 - v0);
+        if (length(face_normal) == 0.0f) {
+            continue;
+        }
+        face_normal = normalize(face_normal);
+        smooth_normals[tri.v0] = smooth_normals[tri.v0] + face_normal;
+        smooth_normals[tri.v1] = smooth_normals[tri.v1] + face_normal;
+        smooth_normals[tri.v2] = smooth_normals[tri.v2] + face_normal;
+    }
+
+    for (auto& n : smooth_normals) {
+        if (length(n) > 0.0f) {
+            n = normalize(n);
+        }
+    }
+
+    for (const auto& tri : face_tris) {
+        Triangle out{};
+        out.v0 = vertices[tri.v0];
+        out.v1 = vertices[tri.v1];
+        out.v2 = vertices[tri.v2];
+        out.material_id = tri.material_id;
+
+        Vec3 face_normal = cross(out.v1 - out.v0, out.v2 - out.v0);
+        if (length(face_normal) > 0.0f) {
+            face_normal = normalize(face_normal);
+        }
+
+        out.n0 = (tri.n0 >= 0 && tri.n0 < static_cast<int>(normals.size())) ? normals[tri.n0] : smooth_normals[tri.v0];
+        out.n1 = (tri.n1 >= 0 && tri.n1 < static_cast<int>(normals.size())) ? normals[tri.n1] : smooth_normals[tri.v1];
+        out.n2 = (tri.n2 >= 0 && tri.n2 < static_cast<int>(normals.size())) ? normals[tri.n2] : smooth_normals[tri.v2];
+
+        if (length(out.n0) == 0.0f) {
+            out.n0 = face_normal;
+        }
+        if (length(out.n1) == 0.0f) {
+            out.n1 = face_normal;
+        }
+        if (length(out.n2) == 0.0f) {
+            out.n2 = face_normal;
+        }
+
+        if (length(out.n0) > 0.0f) {
+            out.n0 = normalize(out.n0);
+        }
+        if (length(out.n1) > 0.0f) {
+            out.n1 = normalize(out.n1);
+        }
+        if (length(out.n2) > 0.0f) {
+            out.n2 = normalize(out.n2);
+        }
+
+        scene.triangles.push_back(out);
+
+        if (tri.is_light) {
+            Material& material = scene.materials[tri.material_id];
+            material.is_emissive = true;
+            material.emission = material.kd * emissive_scale;
+            scene.light_triangle_indices.push_back(
+                static_cast<int>(scene.triangles.size() - 1)
+            );
         }
     }
 

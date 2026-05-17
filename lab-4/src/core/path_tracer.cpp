@@ -165,7 +165,8 @@ bool PathTracer::render(const Scene& scene,
                         const float cos_light = std::max(0.0f, dot(light_normal, -dir_to_light));
 
                         if (cos_surface > 0.0f && cos_light > 0.0f) {
-                            Ray shadow_ray{hit.position + hit.normal * kEpsilon, dir_to_light};
+                            const Vec3 offset_normal = (length(hit.geom_normal) > 0.0f) ? hit.geom_normal : hit.normal;
+                            Ray shadow_ray{hit.position + offset_normal * kEpsilon, dir_to_light};
                             HitInfo shadow_hit{};
                             const bool occluded = accel.intersect(shadow_ray, kEpsilon, distance - kEpsilon, shadow_hit);
 
@@ -192,12 +193,14 @@ bool PathTracer::render(const Scene& scene,
                     if (rng.uniform() < diffuse_prob) {
                         float pdf = 0.0f;
                         const Vec3 new_dir = sample_cosine_hemisphere(hit.normal, rng, pdf);
-                        ray = Ray{hit.position + hit.normal * kEpsilon, new_dir};
+                        const Vec3 offset_normal = (length(hit.geom_normal) > 0.0f) ? hit.geom_normal : hit.normal;
+                        ray = Ray{hit.position + offset_normal * kEpsilon, new_dir};
                         throughput = throughput * material.kd;
                         last_bounce_specular = false;
                     } else {
                         const Vec3 new_dir = reflect_direction(ray.direction, hit.normal);
-                        ray = Ray{hit.position + hit.normal * kEpsilon, new_dir};
+                        const Vec3 offset_normal = (length(hit.geom_normal) > 0.0f) ? hit.geom_normal : hit.normal;
+                        ray = Ray{hit.position + offset_normal * kEpsilon, new_dir};
                         throughput = throughput * material.ks;
                         last_bounce_specular = true;
                     }
