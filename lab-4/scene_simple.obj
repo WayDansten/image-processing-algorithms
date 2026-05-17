@@ -115,13 +115,10 @@ v -3 3 3
 f 38 39 40
 f 38 40 41
 
-# Area light 2: triangular emitter on right wall
-usemtl light_tri_warm
-g light_tri
+# Former light_tri vertices kept to preserve indices
 v 2.800000 1.440000 -0.426667
 v 2.800000 2.560000 -0.986667
 v 2.800000 2.000000 0.413333
-f 42 43 44
 
 # Ramp (triangular prism)
 usemtl ramp_orange
@@ -978,6 +975,26 @@ f 319 320 344
 f 319 344 343
 f 320 321 345
 f 320 345 344
+ 
+# Back wall square light
+usemtl light_back_square
+g light_back_square
+v -1.000000 1.600000 -2.950000
+v 1.000000 1.600000 -2.950000
+v 1.000000 2.600000 -2.950000
+v -1.000000 2.600000 -2.950000
+f -4 -3 -2
+f -4 -2 -1
+
+# Right wall square light
+usemtl light_right_square
+g light_right_square
+v 2.950000 1.200000 -0.800000
+v 2.950000 1.200000 0.800000
+v 2.950000 2.200000 0.800000
+v 2.950000 2.200000 -0.800000
+f -4 -3 -2
+f -4 -2 -1
 f 321 322 346
 f 321 346 345
 f 322 323 347

@@ -49,3 +49,9 @@ Ns 40
 
 newmtl light_tri_warm
 Kd 0.70 0.50 0.30
+
+newmtl light_back_square
+Kd 0.08 0.08 0.08
+
+newmtl light_right_square
+Kd 0.15 0.15 0.15
