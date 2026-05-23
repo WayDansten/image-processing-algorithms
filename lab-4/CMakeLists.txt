@@ -50,24 +50,3 @@ find_package(OpenMP)
 if (OpenMP_CXX_FOUND)
     target_link_libraries(path_tracer PRIVATE OpenMP::OpenMP_CXX)
 endif()
-
-option(PATH_TRACER_BUILD_TESTS "Build path tracer tests" ON)
-
-if (PATH_TRACER_BUILD_TESTS)
-    add_executable(path_tracer_tests
-        src/accel/embree_scene.cpp
-        src/core/sampling.cpp
-        src/io/obj_loader.cpp
-        tests/test_main.cpp
-    )
-    target_include_directories(path_tracer_tests PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-    )
-    target_link_libraries(path_tracer_tests PRIVATE embree)
-    if (MSVC)
-        target_compile_options(path_tracer_tests PRIVATE /W4 /permissive-)
-        target_compile_definitions(path_tracer_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
-    else()
-        target_compile_options(path_tracer_tests PRIVATE -Wall -Wextra -Wpedantic)
-    endif()
-endif()

@@ -123,7 +123,7 @@ bool PathTracer::render(const Scene& scene,
     out_image.resize(settings.width, settings.height);
     LightDistribution lights = build_light_distribution(scene);
 
-    #pragma omp parallel for schedule(dynamic, 1)
+    #pragma omp parallel for schedule(static, 1)
     for (int y = 0; y < static_cast<int>(settings.height); ++y) {
         for (std::uint32_t x = 0; x < settings.width; ++x) {
             const std::uint32_t pixel_index = static_cast<std::uint32_t>(y) * settings.width + x;
