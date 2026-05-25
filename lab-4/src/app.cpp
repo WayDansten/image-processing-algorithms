@@ -6,6 +6,7 @@
 #include <string>
 
 #include "core/path_tracer.h"
+#include "io/bilateral_filter.h"
 #include "io/obj_loader.h"
 #include "io/ppm_writer.h"
 
@@ -180,7 +181,14 @@ int App::run(int argc, char** argv) {
         return 1;
     }
 
-    if (!write_ppm(output_path, image, tone_map, error_message)) {
+    Image filtered{};
+    BilateralFilterSettings filter_settings{};
+    if (!apply_bilateral_filter(image, filtered, filter_settings, error_message)) {
+        std::cerr << "Filter failed: " << error_message << std::endl;
+        return 1;
+    }
+
+    if (!write_ppm(output_path, filtered, tone_map, error_message)) {
         std::cerr << "Failed to write output: " << error_message << std::endl;
         return 1;
     }

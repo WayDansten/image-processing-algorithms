@@ -129,17 +129,33 @@ bool PathTracer::render(const Scene& scene,
             const std::uint32_t pixel_index = static_cast<std::uint32_t>(y) * settings.width + x;
             Rng rng(settings.seed + pixel_index * 9781u + 1u);
             Vec3 pixel_radiance{};
+            float depth_sum = 0.0f;
+            Vec3 normal_sum{};
+            std::uint32_t primary_hit_count = 0;
+            int object_id = -1;
+            bool object_id_set = false;
 
             for (std::uint32_t s = 0; s < settings.samples_per_pixel; ++s) {
                 Ray ray = generate_camera_ray(camera, x, y, settings, rng);
                 Vec3 throughput{1.0f, 1.0f, 1.0f};
                 Vec3 radiance{};
                 bool last_bounce_specular = true;
+                bool primary_hit = false;
 
                 for (std::uint32_t depth = 0; depth < settings.max_depth; ++depth) {
                     HitInfo hit{};
                     if (!accel.intersect(ray, kEpsilon, 1e30f, hit)) {
                         break;
+                    }
+
+                    if (depth == 0) {
+                        primary_hit = true;
+                        depth_sum += hit.t;
+                        normal_sum += hit.normal;
+                        if (!object_id_set) {
+                            object_id = hit.object_id;
+                            object_id_set = true;
+                        }
                     }
 
                     const Material& material = scene.materials[static_cast<std::size_t>(hit.material_id)];
@@ -215,10 +231,23 @@ bool PathTracer::render(const Scene& scene,
                     }
                 }
 
+                if (primary_hit) {
+                    ++primary_hit_count;
+                }
+
                 pixel_radiance += radiance;
             }
 
             out_image.at(x, y) = pixel_radiance / static_cast<float>(settings.samples_per_pixel);
+            out_image.object_id_at(x, y) = object_id;
+            if (primary_hit_count > 0) {
+                out_image.depth_at(x, y) = depth_sum / static_cast<float>(primary_hit_count);
+                Vec3 avg_normal = normal_sum / static_cast<float>(primary_hit_count);
+                if (length(avg_normal) > 0.0f) {
+                    avg_normal = normalize(avg_normal);
+                }
+                out_image.normal_at(x, y) = avg_normal;
+            }
         }
     }
 

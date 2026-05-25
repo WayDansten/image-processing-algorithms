@@ -40,6 +40,8 @@
 ### Вывод
 - [lab-4/src/io/ppm_writer.cpp](lab-4/src/io/ppm_writer.cpp): запись PPM (P6).
   - `write_ppm(...)` — нормализация экспозиции, гамма‑коррекция, запись в файл.
+- [lab-4/src/io/bilateral_filter.cpp](lab-4/src/io/bilateral_filter.cpp): билатеральная фильтрация в линейном пространстве.
+  - `apply_bilateral_filter(...)` — использует глубину, нормаль и object id первого пересечения.
 
 ### Вспомогательные структуры
 - [lab-4/include/core/vec3.h](lab-4/include/core/vec3.h): векторные операции, `dot`, `cross`, `normalize`.
@@ -157,8 +159,9 @@ cmake --build lab-4/build --config Debug --target path_tracer
 
 5) Постобработка и запись результата.
   - Модуль: [lab-4/src/io/ppm_writer.cpp](lab-4/src/io/ppm_writer.cpp)
-  - Метод: `write_ppm(...)`
-  - Действие: нормализация экспозиции, гамма‑коррекция, запись PPM (P6).
+  - Модули: [lab-4/src/io/bilateral_filter.cpp](lab-4/src/io/bilateral_filter.cpp), [lab-4/src/io/ppm_writer.cpp](lab-4/src/io/ppm_writer.cpp)
+  - Методы: `apply_bilateral_filter(...)`, `write_ppm(...)`
+  - Действие: билатеральная фильтрация по depth/normal/object id, затем нормализация экспозиции и запись PPM (P6).
   - Результат: готовый файл изображения по пути `--out`.
 
 ### Пример полного запуска

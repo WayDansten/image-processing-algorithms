@@ -13,6 +13,7 @@ add_executable(path_tracer
     src/core/sampling.cpp
     src/accel/embree_scene.cpp
     src/io/obj_loader.cpp
+    src/io/bilateral_filter.cpp
     src/io/ppm_writer.cpp
     src/main.cpp
 )

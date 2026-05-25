@@ -11,6 +11,7 @@ struct HitInfo {
     Vec3 normal{};
     Vec3 geom_normal{};
     int material_id = -1;
+    int object_id = -1;
 };
 
 }

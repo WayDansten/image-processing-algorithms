@@ -154,6 +154,7 @@ bool EmbreeScene::intersect(const Ray& ray, float t_min, float t_max, HitInfo& h
     hit.normal = shading_normal;
     hit.geom_normal = geom_normal;
     hit.material_id = tri.material_id;
+    hit.object_id = static_cast<int>(prim_id);
     return true;
 }
 
